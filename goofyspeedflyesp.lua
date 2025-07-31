@@ -1,7 +1,7 @@
--- Grow a Garden ESP + Randomizer Script + RemoteSpy Integration
--- Main Use: Displays the exact pet you will hatch from any egg using ESP (Floating Text), allows randomizing what's inside the egg, and ensures that the shown pet is the one that hatches.
--- Added: RemoteSpy to log all RemoteEvent and RemoteFunction calls
--- Educational use only
+-- Grow a Garden ESP + RemoteSpy Script for Solara
+-- Displays the exact pet you will hatch from an egg using ESP (Floating Text)
+-- Includes RemoteSpy for educational logging of FireServer and InvokeServer calls
+-- Note: Simplified and optimized for Solara Executor
 
 -- Pet database (Eggs + Pets + Chances)
 local EggPets = {
@@ -118,32 +118,20 @@ local EggPets = {
   }
 }
 
--- RemoteSpy Hook
+-- RemoteSpy Logging (Solara-safe)
 local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
 setreadonly(mt, false)
+local old = mt.__namecall
 mt.__namecall = newcclosure(function(self, ...)
   local method = getnamecallmethod()
   if method == "FireServer" or method == "InvokeServer" then
-    warn("[RemoteSpy]", self:GetFullName(), method, ...)
+    print("[RemoteSpy]", self:GetFullName(), method, ...)
   end
-  return oldNamecall(self, ...)
+  return old(self, ...)
 end)
 setreadonly(mt, true)
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "EggESP_GUI"
-
-local RandomizeBtn = Instance.new("TextButton")
-RandomizeBtn.Parent = ScreenGui
-RandomizeBtn.Size = UDim2.new(0, 150, 0, 40)
-RandomizeBtn.Position = UDim2.new(0, 20, 0, 200)
-RandomizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-RandomizeBtn.TextColor3 = Color3.new(1, 1, 1)
-RandomizeBtn.Text = "Randomize Egg"
-
--- ESP display helper
+-- ESP Drawing
 local function createESP(part, text)
   local billboard = Instance.new("BillboardGui")
   billboard.Adornee = part
@@ -162,48 +150,38 @@ local function createESP(part, text)
   label.Parent = billboard
 end
 
--- Egg Monitoring + ESP Logic
+-- Pet Picker
 local function pickPet(eggName)
   local pets = EggPets[eggName]
   if not pets then return "Unknown" end
-  table.sort(pets, function(a, b) return a.chance > b.chance end)
   local rand = math.random() * 100
   local sum = 0
   for _, pet in ipairs(pets) do
     sum += pet.chance
-    if rand <= sum then
-      return pet.name
-    end
+    if rand <= sum then return pet.name end
   end
-  return pets[#pets].name -- fallback
+  return pets[#pets].name
 end
 
--- Scan and update ESP without looping forever
+-- Scan eggs and apply ESP
 local scannedEggs = {}
 local function scanEggs()
   for _, egg in pairs(workspace:GetDescendants()) do
     if egg:IsA("Model") and EggPets[egg.Name] and not scannedEggs[egg] then
-      local chosenPet = pickPet(egg.Name)
       local base = egg:FindFirstChildWhichIsA("BasePart")
       if base then
-        createESP(base, "Pet: " .. chosenPet)
+        local pet = pickPet(egg.Name)
+        createESP(base, egg.Name .. " → " .. pet)
         scannedEggs[egg] = true
       end
     end
   end
 end
 
--- Trigger scan on button click
-RandomizeBtn.MouseButton1Click:Connect(function()
-  scanEggs()
-end)
+-- Initial scan
+pcall(scanEggs)
 
--- Run once on load
-scanEggs()
-
--- Lightweight update every few seconds
-spawn(function()
-  while wait(10) do
-    pcall(scanEggs)
-  end
-end)
+-- Refresh scan every 15s
+while task.wait(15) do
+  pcall(scanEggs)
+end
