@@ -63,24 +63,29 @@ randomBtn.TextScaled = true
 randomBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 randomBtn.TextColor3 = Color3.new(1, 1, 1)
 
--- ESP Logic (show exact pet from Contents.Value)
 local function showEggESP()
     for _, egg in pairs(workspace:GetDescendants()) do
         if egg:IsA("Model") and egg.Name:lower():find("egg") then
             local contents = egg:FindFirstChild("Contents")
             if contents and contents:IsA("StringValue") then
-                -- Remove old ESP if exists
-                local oldESP = egg:FindFirstChild("EggESP")
-                if oldESP then oldESP:Destroy() end
+                -- Remove old ESP
+                if egg:FindFirstChild("ESPPart") then
+                    egg.ESPPart:Destroy()
+                end
+                -- Find a part inside the model to attach ESP to
+                local targetPart = egg:FindFirstChildWhichIsA("BasePart")
+                if not targetPart then continue end
 
-                -- Create new ESP
-                local esp = Instance.new("BillboardGui", egg)
-                esp.Name = "EggESP"
-                esp.Size = UDim2.new(0, 200, 0, 50)
-                esp.StudsOffset = Vector3.new(0, 3, 0)
-                esp.AlwaysOnTop = true
+                -- Create BillboardGui
+                local espGui = Instance.new("BillboardGui")
+                espGui.Name = "EggESP"
+                espGui.Adornee = targetPart
+                espGui.Size = UDim2.new(0, 200, 0, 50)
+                espGui.StudsOffset = Vector3.new(0, 3, 0)
+                espGui.AlwaysOnTop = true
+                espGui.Parent = targetPart
 
-                local label = Instance.new("TextLabel", esp)
+                local label = Instance.new("TextLabel", espGui)
                 label.Size = UDim2.new(1, 0, 1, 0)
                 label.BackgroundTransparency = 1
                 label.TextColor3 = Color3.fromRGB(255, 255, 0)
@@ -90,6 +95,7 @@ local function showEggESP()
         end
     end
 end
+
 
 -- Randomize Egg Contents
 local function randomizeEggs()
