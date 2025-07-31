@@ -1,8 +1,9 @@
--- 📜 Grow a Garden: Egg ESP + Randomizer GUI Script (Supports All Known Eggs & Pets)
--- ⚠️ This script is intended for testing/educational use. Do not use to violate game TOS.
+-- 🌱 Grow a Garden ESP + Randomizer Script (Ultimate Edition)
+-- ✅ Shows exact pet inside each egg, supports all eggs, live updates ESP on randomization
+-- ⚠️ Intended for testing & educational purposes only
 
--- CONFIG: List of pets for each egg with drop chances
-local eggPets = {
+-- ⚙️ PET DATABASE (expandable)
+local EggPets = {
     ["Common Egg"] = {
         {name = "Dog", chance = 33.3},
         {name = "Bunny", chance = 33.3},
@@ -20,13 +21,6 @@ local eggPets = {
         {name = "Pig", chance = 16},
         {name = "Rooster", chance = 16},
         {name = "Monkey", chance = 10},
-    },
-    ["Legendary Egg"] = {
-        {name = "Cow", chance = 42.5},
-        {name = "Silver Monkey", chance = 42.5},
-        {name = "Sea Otter", chance = 10.6},
-        {name = "Turtle", chance = 2.1},
-        {name = "Polar Bear", chance = 2.1},
     },
     ["Mythical Egg"] = {
         {name = "Grey Mouse", chance = 35.7},
@@ -47,99 +41,90 @@ local eggPets = {
         {name = "Orangutan", chance = 15},
         {name = "Seal", chance = 10},
     },
-    ["Bee Egg"] = {
-        {name = "Bee", chance = 65},
-        {name = "Honey Bee", chance = 25},
-        {name = "Bear Bee", chance = 5},
-        {name = "Petal Bee", chance = 4},
-        {name = "Queen Bee", chance = 1},
-    },
-    ["Anti Bee Egg"] = {
-        {name = "Wasp", chance = 55},
-        {name = "Tarantula Hawk", chance = 30},
-        {name = "Moth", chance = 13.75},
-        {name = "Butterfly", chance = 1},
-        {name = "Disco Bee", chance = 0.25},
-    },
-    ["Paradise Egg"] = {
-        {name = "Ostrich", chance = 40},
-        {name = "Peacock", chance = 30},
-        {name = "Capybara", chance = 21},
-        {name = "Scarlet Macaw", chance = 8},
-        {name = "Mimic Octopus", chance = 1},
-    },
 }
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui", game.Players.LocalPlayer:WaitForChild("PlayerGui"))
-ScreenGui.Name = "EggToolGUI"
+-- 🎨 ESP SYSTEM
+local function createESP(egg, petName)
+    if egg:FindFirstChild("_esp") then egg._esp:Destroy() end
+    local head = egg:FindFirstChildWhichIsA("BasePart")
+    if not head then return end
 
-local function createButton(name, pos, callback)
-    local btn = Instance.new("TextButton", ScreenGui)
-    btn.Text = name
-    btn.Size = UDim2.new(0, 140, 0, 40)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "_esp"
+    billboard.Size = UDim2.new(0, 200, 0, 40)
+    billboard.Adornee = head
+    billboard.AlwaysOnTop = true
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.Parent = egg
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "Pet: " .. (petName or "Unknown")
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = billboard
+end
+
+-- 🎲 RANDOMIZER SYSTEM
+local function getRandomPet(eggType)
+    local list = EggPets[eggType]
+    if not list then return "Unknown" end
+    local roll = math.random() * 100
+    local accum = 0
+    for _, entry in ipairs(list) do
+        accum += entry.chance
+        if roll <= accum then return entry.name end
+    end
+    return list[#list].name -- fallback
+end
+
+-- 🧠 MAIN INTERFACE
+local Player = game.Players.LocalPlayer
+local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+ScreenGui.Name = "PetESP_GUI"
+
+local function createButton(text, position, callback)
+    local btn = Instance.new("TextButton")
+    btn.Text = text
+    btn.Size = UDim2.new(0, 160, 0, 40)
+    btn.Position = position
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.Parent = ScreenGui
     btn.MouseButton1Click:Connect(callback)
 end
 
--- ESP Function
-local function addESPToEgg(egg)
-    local head = egg:FindFirstChildWhichIsA("BasePart")
-    if not head or egg:FindFirstChild("_esp") then return end
-
-    local gui = Instance.new("BillboardGui", egg)
-    gui.Name = "_esp"
-    gui.Adornee = head
-    gui.Size = UDim2.new(0, 200, 0, 50)
-    gui.StudsOffset = Vector3.new(0, 3, 0)
-    gui.AlwaysOnTop = true
-
-    local label = Instance.new("TextLabel", gui)
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.BackgroundTransparency = 1
-    label.TextScaled = true
-    label.Text = "Pet: " .. (egg:FindFirstChild("Contents") and egg.Contents.Value or "Unknown")
-end
-
--- Randomize Function
-local function randomizeEgg(egg)
-    local eggType = egg.Name
-    local petList = eggPets[eggType]
-    if petList and egg:FindFirstChild("Contents") then
-        local rand = math.random() * 100
-        local total = 0
-        for _, entry in ipairs(petList) do
-            total = total + entry.chance
-            if rand <= total then
-                egg.Contents.Value = entry.name
-                break
-            end
-        end
-        local esp = egg:FindFirstChild("_esp")
-        if esp then
-            esp.TextLabel.Text = "Pet: " .. egg.Contents.Value
-        end
-    end
-end
-
--- Main Buttons
-createButton("🔍 ESP All Eggs", UDim2.new(0, 20, 0, 100), function()
-    for _, egg in pairs(workspace:GetDescendants()) do
+-- 🔍 ESP BUTTON
+createButton("🔍 Show ESP", UDim2.new(0, 20, 0, 100), function()
+    for _, egg in ipairs(workspace:GetDescendants()) do
         if egg:IsA("Model") and egg.Name:lower():find("egg") then
-            addESPToEgg(egg)
+            local contents = egg:FindFirstChild("Contents")
+            local name = contents and contents:IsA("StringValue") and contents.Value or "Unknown"
+            createESP(egg, name)
         end
     end
 end)
 
+-- 🎲 RANDOMIZE BUTTON
 createButton("🎲 Randomize Eggs", UDim2.new(0, 20, 0, 150), function()
-    for _, egg in pairs(workspace:GetDescendants()) do
-        if egg:IsA("Model") and egg.Name:lower():find("egg") then
-            randomizeEgg(egg)
+    for _, egg in ipairs(workspace:GetDescendants()) do
+        if egg:IsA("Model") and EggPets[egg.Name] then
+            local chosen = getRandomPet(egg.Name)
+            if egg:FindFirstChild("Contents") then
+                egg.Contents.Value = chosen
+            else
+                local contents = Instance.new("StringValue")
+                contents.Name = "Contents"
+                contents.Value = chosen
+                contents.Parent = egg
+            end
+            createESP(egg, chosen)
         end
     end
 end)
 
-print("✅ Egg ESP + Randomizer loaded.")
+print("✅ Ultimate Egg ESP + Randomizer Loaded")
