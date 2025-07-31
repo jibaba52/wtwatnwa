@@ -92,25 +92,73 @@ createToggle("Speed Hack", 10, function()
 	return speedEnabled
 end)
 
--- Fly Hack
+-- Fly Hack (Improved)
 local flying = false
-local velocity
+local BV, BG
+local flySpeed = 50
+local flyKeys = {W = false, A = false, S = false, D = false}
 
 createToggle("Fly Hack", 50, function()
 	flying = not flying
-	if flying then
-		local character = player.Character or player.CharacterAdded:Wait()
-		local root = character:WaitForChild("HumanoidRootPart")
+	local char = player.Character or player.CharacterAdded:Wait()
+	local root = char:WaitForChild("HumanoidRootPart")
 
-		velocity = Instance.new("BodyVelocity")
-		velocity.Velocity = Vector3.new(0,0,0)
-		velocity.MaxForce = Vector3.new(1e5,1e5,1e5)
-		velocity.Parent = root
+	if flying then
+		BV = Instance.new("BodyVelocity")
+		BV.Velocity = Vector3.zero
+		BV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		BV.Parent = root
+
+		BG = Instance.new("BodyGyro")
+		BG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+		BG.P = 1e4
+		BG.CFrame = root.CFrame
+		BG.Parent = root
 	else
-		if velocity then velocity:Destroy() end
+		if BV then BV:Destroy() end
+		if BG then BG:Destroy() end
 	end
+
 	return flying
 end)
+
+-- Fly Controls
+UIS.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	local key = input.KeyCode
+	if key == Enum.KeyCode.W then flyKeys.W = true end
+	if key == Enum.KeyCode.A then flyKeys.A = true end
+	if key == Enum.KeyCode.S then flyKeys.S = true end
+	if key == Enum.KeyCode.D then flyKeys.D = true end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	local key = input.KeyCode
+	if key == Enum.KeyCode.W then flyKeys.W = false end
+	if key == Enum.KeyCode.A then flyKeys.A = false end
+	if key == Enum.KeyCode.S then flyKeys.S = false end
+	if key == Enum.KeyCode.D then flyKeys.D = false end
+end)
+
+-- Update Fly Movement
+RunService.RenderStepped:Connect(function()
+	if flying and BV and BG then
+		local cam = workspace.CurrentCamera
+		local moveDir = Vector3.zero
+
+		if flyKeys.W then moveDir = moveDir + cam.CFrame.LookVector end
+		if flyKeys.S then moveDir = moveDir - cam.CFrame.LookVector end
+		if flyKeys.A then moveDir = moveDir - cam.CFrame.RightVector end
+		if flyKeys.D then moveDir = moveDir + cam.CFrame.RightVector end
+
+		BV.Velocity = moveDir.Unit * flySpeed
+		if moveDir.Magnitude == 0 then
+			BV.Velocity = Vector3.zero
+		end
+		BG.CFrame = cam.CFrame
+	end
+end)
+
 
 -- ESP Hack
 local espEnabled = false
